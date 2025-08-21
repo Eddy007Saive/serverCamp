@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workflow Monitor SSE</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+  .container { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+  .status-card { background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 10px 0; border-radius: 4px; }
+  .progress-bar { width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); width: 0%; transition: width 0.3s ease; }
+  .log-container { background: #1e1e1e; color: #00ff00; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 14px; max-height: 300px; overflow-y: auto; margin: 20px 0; }
+  .btn { background: #2196f3; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px 0; }
+  .btn:disabled { background: #ccc; cursor: not-allowed; }
+  .step-item { background: white; border: 1px solid #e0e0e0; border-radius: 4px; padding: 10px; margin: 5px 0; border-left: 4px solid #4caf50; }
+  .error { background: #ffebee; border-left-color: #f44336; color: #c62828; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🔄 Workflow Monitor SSE</h1>
+
+    <div class="controls">
+        <button id="startBtn" class="btn">Démarrer le Workflow</button>
+        <button id="stopBtn" class="btn" disabled>Arrêter</button>
+    </div>
+
+    <div class="status-card">
+        <h3>📊 Statut : <span id="status">En attente</span></h3>
+        <div class="progress-bar"><div id="progressBar" class="progress-fill"></div></div>
+        <p id="statusMessage">Cliquez sur "Démarrer" pour lancer le workflow</p>
+    </div>
+
+    <div class="data-display">
+        <h3>📋 Données reçues</h3>
+        <div id="dataContainer"><p>Aucune donnée pour le moment...</p></div>
+    </div>
+
+    <div class="steps-container">
+        <h3>⚙️ Étapes du Workflow</h3>
+        <div id="stepsContainer"></div>
+    </div>
+
+    <div class="log-container" id="logContainer"><div>📟 Console - En attente de connexion...</div></div>
+</div>
+
+<script>
+class WorkflowMonitor {
+    constructor() {
+        this.eventSource = null;
+        this.stepCount = 0;
+        this.startTime = null;
+
+        this.elements = {
+            startBtn: document.getElementById('startBtn'),
+            stopBtn: document.getElementById('stopBtn'),
+            status: document.getElementById('status'),
+            statusMessage: document.getElementById('statusMessage'),
+            progressBar: document.getElementById('progressBar'),
+            dataContainer: document.getElementById('dataContainer'),
+            stepsContainer: document.getElementById('stepsContainer'),
+            logContainer: document.getElementById('logContainer')
+        };
+
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        this.elements.startBtn.addEventListener('click', () => this.startWorkflow());
+        this.elements.stopBtn.addEventListener('click', () => this.stopWorkflow());
+    }
+
+    log(message, type='info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const colors = { info:'#00ff00', error:'#ff4444', success:'#44ff44', warning:'#ffaa00' };
+        const div = document.createElement('div');
+        div.innerHTML = `<span style="color:#888">[${timestamp}]</span> <span style="color:${colors[type]}">${message}</span>`;
+        this.elements.logContainer.appendChild(div);
+        this.elements.logContainer.scrollTop = this.elements.logContainer.scrollHeight;
+    }
+
+    startWorkflow() {
+        if (this.eventSource) return;
+
+        this.startTime = Date.now();
+        this.stepCount = 0;
+        this.elements.startBtn.disabled = true;
+        this.elements.stopBtn.disabled = false;
+
+        const apiUrl = 'http://localhost:3000/workflow';
+
+        this.eventSource = new EventSource(apiUrl);
+
+        this.log('🔌 Connexion au workflow...', 'info');
+
+        this.eventSource.addEventListener('start', e => {
+            const data = JSON.parse(e.data);
+            this.updateStatus('En cours', data.message, 10);
+            this.log(`🚀 ${data.message}`, 'success');
+        });
+
+        this.eventSource.addEventListener('progress', e => {
+            const data = JSON.parse(e.data);
+            this.updateData(data.data);
+            this.updateStatus('Progression', 'Traitement en cours...', 30);
+            this.log('📈 Données de progression reçues', 'info');
+        });
+
+        this.eventSource.addEventListener('step', e => {
+            const data = JSON.parse(e.data);
+            this.addStep(data);
+            this.updateStatus('Étape', data.message || 'Nouvelle étape', Math.min(50 + (this.stepCount*10),90));
+            this.log(`⚙️ Étape ${this.stepCount}: ${data.message || 'En cours'}`, 'info');
+        });
+
+        this.eventSource.addEventListener('update', e => {
+            const data = JSON.parse(e.data);
+            this.updateData(data.data);
+            this.log('🔄 Mise à jour des données', 'info');
+        });
+
+        this.eventSource.addEventListener('completed', e => {
+            const data = JSON.parse(e.data);
+            this.updateData(data.result);
+            this.updateStatus('Terminé','Workflow complété!',100);
+            this.addStep({message:'Workflow terminé', data: data.result});
+            this.log('✅ Workflow terminé', 'success');
+            this.stopWorkflow();
+        });
+
+        this.eventSource.addEventListener('error', e => {
+            const data = e.data ? JSON.parse(e.data) : {};
+            this.updateStatus('Erreur', `Erreur: ${data.error || 'Connexion perdue'}`,0);
+            this.log(`❌ Erreur: ${data.error || 'Connexion SSE perdue'}`, 'error');
+            this.stopWorkflow();
+        });
+    }
+
+    stopWorkflow() {
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        this.elements.startBtn.disabled = false;
+        this.elements.stopBtn.disabled = true;
+        this.log('⏹️ Workflow arrêté', 'warning');
+    }
+
+    updateStatus(status, message, progress) {
+        this.elements.status.textContent = status;
+        this.elements.statusMessage.textContent = message;
+        this.elements.progressBar.style.width = `${progress}%`;
+    }
+
+    updateData(data) {
+        if (!data) return;
+        this.elements.dataContainer.innerHTML = `<pre>${JSON.stringify(data,null,2)}</pre>`;
+    }
+
+    addStep(stepData) {
+        this.stepCount++;
+        const div = document.createElement('div');
+        div.className = `step-item ${stepData.error ? 'error' : ''}`;
+        div.innerHTML = `<strong>${stepData.error ? '❌' : '✅'} Étape ${this.stepCount}</strong> <div>${stepData.message || stepData.error || 'Étape complétée'}</div>`;
+        if (stepData.data) {
+            const details = document.createElement('details');
+            details.innerHTML = `<summary>Voir les données</summary><pre>${JSON.stringify(stepData.data,null,2)}</pre>`;
+            div.appendChild(details);
+        }
+        this.elements.stepsContainer.appendChild(div);
+        div.scrollIntoView({behavior:'smooth'});
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.workflowMonitor = new WorkflowMonitor();
+});
+</script>
+</body>
+</html>
