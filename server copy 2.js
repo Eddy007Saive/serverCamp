@@ -162,6 +162,9 @@ app.post('/webhook/enrichir/contacte', async (req, res) => {
   }
 });
 
+
+
+
 // 4. Supprimer les contacts rejetés
 app.post('/webhook/supprimer/contact/reject', async (req, res) => {
   const { sendEvent } = createSSEResponse(res);
@@ -484,6 +487,70 @@ app.use((error, req, res, next) => {
   
   res.end();
 });
+
+// 3. Enrichir les contacts
+app.post('/webhook/retrier/profils', async (req, res) => {
+  const { sendEvent } = createSSEResponse(res);
+  const { id } = req.body;
+
+  try {
+    sendEvent('start', { message: 'Validation des profil en cours...' });
+
+    const webhookUrl = 'https://n8n.srv903010.hstgr.cloud/webhook/retrier/profils';
+    const response = await axios.post(webhookUrl, { id });
+    
+    let data = response.data;
+    sendEvent('progress', { data });
+
+    if (data.executionUrl) {
+      data = await pollWorkflow(data.executionUrl, sendEvent);
+    }
+
+    sendEvent('completed', { 
+      message: 'Trie terminé avec succès', 
+      result: data 
+    });
+    res.end();
+  } catch (error) {
+    sendEvent('error', { 
+      error: error.message,
+      message: 'Erreur lors de l\'enrichissement'
+    });
+    res.end();
+  }
+});
+
+app.post('/webhook/trier/profils', async (req, res) => {
+  const { sendEvent } = createSSEResponse(res);
+  const { id } = req.body;
+
+  try {
+    sendEvent('start', { message: 'Triage des validation des profils en cours...' });
+
+    const webhookUrl = 'https://n8n.srv903010.hstgr.cloud/webhook/trier/profils';
+    const response = await axios.post(webhookUrl, { id });
+    
+    let data = response.data;
+    sendEvent('progress', { data });
+
+    if (data.executionUrl) {
+      data = await pollWorkflow(data.executionUrl, sendEvent);
+    }
+
+    sendEvent('completed', { 
+      message: 'Triage Terminé terminé avec succès', 
+      result: data 
+    });
+    res.end();
+  } catch (error) {
+    sendEvent('error', { 
+      error: error.message,
+      message: 'Erreur lors du triage'
+    });
+    res.end();
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`🚀 SSE Node.js server running on port ${PORT}`);
