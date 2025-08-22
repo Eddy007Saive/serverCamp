@@ -138,7 +138,7 @@ app.post('/webhook/enrichir/contacte', async (req, res) => {
   try {
     sendEvent('start', { message: 'Enrichissement des contacts en cours...' });
 
-    const webhookUrl = 'https://n8n.srv903010.hstgr.cloud/webhook-test/enrichir/contacte';
+    const webhookUrl = 'https://n8n.srv903010.hstgr.cloud/webhook/enrichir/contacte';
     const response = await axios.post(webhookUrl, { id });
     
     let data = response.data;
