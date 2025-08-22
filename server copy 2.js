@@ -420,6 +420,8 @@ app.get('/api/webhooks', (req, res) => {
   sendEvent('start', { message: 'Récupération de la liste des webhooks...' });
   
   const webhooks = [
+    { path: '/webhook/trier/profils', method: 'POST', description: 'Trier Profil (SSE)' },
+    { path: '/webhook/retrier/profils', method: 'POST', description: 'Retrier profil (SSE)' },
     { path: '/webhook/generer/messages', method: 'POST', description: 'Générer des messages personnalisés (SSE)' },
     { path: '/webhook/regenerer/messages', method: 'POST', description: 'Régénérer des messages (SSE)' },
     { path: '/webhook/enrichir/contacte', method: 'POST', description: 'Enrichir les contacts (SSE)' },
