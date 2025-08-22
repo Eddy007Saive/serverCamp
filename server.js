@@ -726,9 +726,7 @@ app.post('/webhook/generer/messages', async (req, res) => {
     });
     
     const startRequest = Date.now();
-    const response = await axios.post(webhookUrl, { id, mode }, {
-      timeout: 30000 // 30s timeout
-    });
+    const response = await axios.post(webhookUrl, { id, mode });
     const requestDuration = Date.now() - startRequest;
     
     logger.info('📥 Réponse N8N reçue', {
@@ -798,9 +796,7 @@ app.post('/webhook/regenerer/messages', async (req, res) => {
     });
     
     const startRequest = Date.now();
-    const response = await axios.post(webhookUrl, { id }, {
-      timeout: 30000
-    });
+    const response = await axios.post(webhookUrl, { id });
     const requestDuration = Date.now() - startRequest;
     
     logger.info('📥 Réponse régénération N8N reçue', {
@@ -864,9 +860,7 @@ app.post('/webhook/enrichir/contacte', async (req, res) => {
     });
     
     const startRequest = Date.now();
-    const response = await axios.post(webhookUrl, { id }, {
-      timeout: 30000
-    });
+    const response = await axios.post(webhookUrl, { id });
     const requestDuration = Date.now() - startRequest;
     
     logger.info('📥 Réponse enrichissement N8N reçue', {
@@ -930,9 +924,7 @@ app.post('/webhook/supprimer/contact/reject', async (req, res) => {
     });
     
     const startRequest = Date.now();
-    const response = await axios.post(webhookUrl, { id }, {
-      timeout: 30000
-    });
+    const response = await axios.post(webhookUrl, { id });
     const requestDuration = Date.now() - startRequest;
     
     logger.info('📥 Réponse suppression N8N reçue', {
